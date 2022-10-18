@@ -1,8 +1,36 @@
 [package]
-name = "perlin_noise"
+name = "perlin-noise"
 version = "0.1.0"
-edition = "2021"
+authors = ["SamuelWhittle <swbnp7@gmail.com>"]
+edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
 
 [dependencies]
+wasm-bindgen = "0.2.83"
+fasthash = "0.4.0"
+js-sys = "0.3.60"
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.6", optional = true }
+
+[profile.release]
+opt-level = "s"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[profile.dev]
+opt-level = 0
+panic = 'abort'

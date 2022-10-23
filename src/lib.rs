@@ -68,6 +68,13 @@ impl PerlinNoise {
     }
 
     // UTILITY FUNCTIONS
+    
+    pub fn get_noise_img_data(&mut self, positions: &[f32], dimensions: usize) -> Vec<f32> {
+        (0..positions.len()).step_by(dimensions).map(|index| {
+            self.get_fractal_noise_value(positions[index..index+dimensions].to_vec())
+        }).collect()
+    }
+
     pub fn get_fractal_noise_value(&mut self, coords: Vec<f32>) -> f32 {
         (0..self.num_octaves).fold(0_f32,|acc, octave| {
             let octave_coords: Vec<f32> = coords.clone().iter().map(|coord| {

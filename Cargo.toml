@@ -11,17 +11,10 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = "0.2.83"
 twox-hash = "1.6.3"
 rand = "0.8.5"
+getrandom = { version = "0.2", features = ["js"] }
 
 [profile.release]
-opt-level = "s"
-overflow-checks = true
-debug = 0
-strip = "symbols"
-debug-assertions = false
-panic = "abort"
-codegen-units = 1
-lto = true
+#opt-level = "s"
+opt-level = 3
+#debug = 1
 
-[profile.dev]
-opt-level = 0
-panic = 'abort'

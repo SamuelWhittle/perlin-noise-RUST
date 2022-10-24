@@ -14,7 +14,6 @@ rand = "0.8.5"
 getrandom = { version = "0.2", features = ["js"] }
 
 [profile.release]
-#opt-level = "s"
 opt-level = 3
-#debug = 1
+lto = true
 

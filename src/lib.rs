@@ -4,7 +4,7 @@ use std::hash::Hasher;
 use twox_hash::XxHash64;
 use rand::Rng;
 
-#[wasm_bindgen]
+/*#[wasm_bindgen]
 extern {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
@@ -12,14 +12,13 @@ extern {
 
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
-}
+}*/
 
 #[wasm_bindgen]
 pub struct PerlinNoise {
     num_octaves: u32,
     octave_scale: f64,
     seed: u64,
-    interp_func: fn(f64, f64, f64) -> f64
 }
 
 #[wasm_bindgen]
@@ -30,7 +29,6 @@ impl PerlinNoise {
             num_octaves,
             octave_scale,
             seed,
-            interp_func: PerlinNoise::smerp
         }
     }
 
@@ -39,7 +37,6 @@ impl PerlinNoise {
             num_octaves: 1,
             octave_scale: 1.0,
             seed,
-            interp_func: PerlinNoise::smerp
         }
     }
 
@@ -51,7 +48,6 @@ impl PerlinNoise {
             num_octaves,
             octave_scale,
             seed,
-            interp_func: PerlinNoise::smerp
         }
     }
 
@@ -63,13 +59,12 @@ impl PerlinNoise {
             num_octaves: 1,
             octave_scale: 1.0,
             seed,
-            interp_func: PerlinNoise::smerp
         }
     }
 
     // UTILITY FUNCTIONS
     
-    pub fn get_noise_img_data(&mut self, positions: &[f64], dimensions: usize) -> Vec<f64> {
+    pub fn get_noise_array(&mut self, positions: &[f64], dimensions: usize) -> Vec<f64> {
         (0..positions.len()).step_by(dimensions).map(|index| {
             self.get_fractal_noise_value(&positions[index..index+dimensions])
         }).collect()
@@ -85,26 +80,10 @@ impl PerlinNoise {
 
             let corner_count = 1 << coords.len() as u64;
 
-            let dot_products = (0..corner_count).map(|corner| {
+            let dot_products: Vec<f64> = (0..corner_count).map(|corner| {
                 let corner_coords = PerlinNoise::calc_corner_coords(&octave_coords, corner);
-
-                /*let corner_vec: Vec<f64> = (0..corner_coords.len()).map(|index| {
-                    let mut hasher = XxHash64::with_seed(self.seed);
-                    (index..corner_coords.len()).rev().chain(0..index + 1)
-                        .map(|corner_index| corner_coords[corner_index]).collect::<Vec<u64>>().hash(&mut hasher);
-                        (hasher.finish() as i64 % 256_i64) as f64
-                }).collect();*/
                 
-                /*let corner_vec: Vec<f64> = (0..corner_coords.len()).map(|index| {
-                    let bytes: Vec<u8> = (index..corner_coords.len()).rev().chain(0..index + 1)
-                        .flat_map(|fundex| corner_coords[fundex].to_le_bytes()).collect();
-
-                    let mut hasher: XxHash64 = XxHash64::with_seed(self.seed);
-                    hasher.write(&bytes);
-                    (hasher.finish() as i64 %256_i64) as f64
-                }).collect();*/
-                
-                let corner_vec: Vec<f64> = (0..corner_coords.len()).map(|index| {
+                let corner_vec: Vec<i64> = (0..corner_coords.len()).map(|index| {
                     let mut hasher: XxHash64 = XxHash64::with_seed(self.seed);
 
                     hasher.write_i32((index..corner_coords.len()).rev().chain(0..index + 1)
@@ -112,20 +91,22 @@ impl PerlinNoise {
                         .fold(0, |accumulator, (reduce_index, corner_coord)| {
                             accumulator^(corner_coord << reduce_index)
                         }) as i32);
-                    (hasher.finish() as i64 %256_i64) as f64
+                    hasher.finish() as i64 %256_i64
                 }).collect();
-
-                //corner_vec = PerlinNoise::normalize_vector(corner_vec);
 
                 let offset_vec: Vec<f64> = PerlinNoise::get_offset_vector(&corner_coords, &octave_coords);
 
                 PerlinNoise::get_dot_product(corner_vec, offset_vec)
             }).collect();
 
-            let octave_noise = (0..coords.len()).fold(dot_products, |acc, dim| self.interp_dim(acc, octave_coords[dim as usize] % 1.0))[0];
+            let octave_noise = (0..coords.len()).fold(dot_products, |acc, dim| {
+                (0..acc.len() / 2).map(|i| {
+                    PerlinNoise::smerp(acc[i * 2], acc[(i * 2)+1], octave_coords[dim as usize] % 1.0)
+                }).collect()
+            })[0];
+            //let octave_noise = (0..coords.len()).fold(dot_products, |acc, dim| self.interp_dim(acc, octave_coords[dim as usize] % 1.0))[0];
 
-            acc + octave_noise * self.octave_scale.powi(octave as i32) / max_potential_length
-            //acc + octave_noise * 2.0 / (coords.len() as f64).sqrt() * self.octave_scale.powi(octave as i32) / max_potential_length
+            acc + (octave_noise * self.octave_scale.powi(octave as i32) / max_potential_length)
         })
     }
 
@@ -158,41 +139,21 @@ impl PerlinNoise {
     pub fn set_seed(&mut self, new_seed: u64) {
         self.seed = new_seed
     }
-
-    pub fn set_interp_func(&mut self, func_name: &str) {
-        match func_name {
-            "smerp" => {
-                self.interp_func = PerlinNoise::smerp;
-            },
-            "lerp" => {
-                self.interp_func = PerlinNoise::lerp;
-            },
-            _ => {
-                console_log!("{} is not a valid interp_func name", func_name);
-            }
-        }
-    }
 }
 
 impl PerlinNoise {
-    fn interp_dim(&self, values: Vec<f64>, weight: f64) -> Vec<f64> {
-        (0..values.len() / 2).map(|i| {
-            (self.interp_func)(values[i * 2], values[(i * 2)+1], weight)
-        }).collect()
-    }
-
-    fn lerp(start: f64, stop: f64, weight: f64) -> f64 {
+    /*fn lerp(start: f64, stop: f64, weight: f64) -> f64 {
         (stop - start) * weight + start
         //return (a1 - a0) * w + a0
-    }
+    }*/
 
     fn smerp(start: f64, stop: f64, weight: f64) -> f64 {
         (stop - start) * ((weight * (weight * 6.0 - 15.0) + 10.0) * weight.powi(3)) + start
         //(stop - start) * (3.0 - weight * 2.0) * weight * weight + start
     }
 
-    fn get_dot_product(vector_a: Vec<f64>, vector_b: Vec<f64>) -> f64 {
-        vector_a.iter().zip(vector_b.iter()).map(|(&vec_a_comp, &vec_b_comp)| vec_a_comp * vec_b_comp).sum()
+    fn get_dot_product(vector_a: Vec<i64>, vector_b: Vec<f64>) -> f64 {
+        vector_a.iter().zip(vector_b.iter()).map(|(&vec_a_comp, &vec_b_comp)| vec_a_comp as f64 * vec_b_comp).sum()
     }
 
     // Get Vector from corner_coords to coords

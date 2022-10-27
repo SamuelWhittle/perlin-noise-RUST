@@ -182,15 +182,24 @@ pub fn startup() {
     // able to interact with the code in the worker. Therefore, we wrap it in
     // `Rc<RefCell>` following the interior mutability pattern. Here, it would
     // not be needed but we include the wrapping anyway as example.
-    let worker_handle = Rc::new(RefCell::new(Worker::new("./worker.js").unwrap()));
+    let worker_handle = Rc::new(RefCell::new(Worker::new("/wasm_workers/PerlinNoiseWasmWorker.js").unwrap()));
     console::log_1(&"Created a new worker from within WASM".into());
 
     // Pass the worker to the function which sets up the `oninput` callback.
-    setup_input_oninput_callback(worker_handle.clone());
+    //setup_input_oninput_callback(worker_handle.clone());
+    setup_input_oninput_callback(worker_handle);
 }
 
 fn setup_input_oninput_callback(worker: Rc<RefCell<web_sys::Worker>>) {
     let document = web_sys::window().unwrap().document().unwrap();
+    let canvas = document.get_element_by_id("mainCanvas").unwrap();
+    let canvas: web_sys::HtmlCanvasElement = canvas
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .map_err(|_| ())
+        .unwrap();
+
+    let canvas_width = canvas.width();
+    let canvas_height = canvas.height();
 
     // If our `onmessage` callback should stay valid after exiting from the
     // `oninput` closure scope, we need to either forget it (so it is not
@@ -200,21 +209,29 @@ fn setup_input_oninput_callback(worker: Rc<RefCell<web_sys::Worker>>) {
     // callback. The initial value will not be used and we silence the warning.
     #[allow(unused_assignments)]
     let mut persistent_callback_handle = get_on_msg_callback();
+    console::log_1(&"persistent_callback_handle assigned from within WASM".into());
 
-    let callback = Closure::new(move || {
+    /*let callback = Closure::new(move || {
         console::log_1(&"oninput callback triggered".into());
         let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("mainCanvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap();
 
-        let input_field = document
+        console::log_3(&"canvas width, canvas height: ".into(), &canvas.width().into(), &canvas.height().into());
+
+        /*let input_field = document
             .get_element_by_id("inputNumber")
             .expect("#inputNumber should exist");
         let input_field = input_field
             .dyn_ref::<HtmlInputElement>()
-            .expect("#inputNumber should be a HtmlInputElement");
+            .expect("#inputNumber should be a HtmlInputElement");*/
 
         // If the value in the field can be parsed to a `i32`, send it to the
         // worker. Otherwise clear the result field.
-        match input_field.value().parse::<i32>() {
+        match input_field.value().parse::<f32>() {
             Ok(number) => {
                 // Access worker behind shared handle, following the interior
                 // mutability pattern.
@@ -236,15 +253,39 @@ fn setup_input_oninput_callback(worker: Rc<RefCell<web_sys::Worker>>) {
                     .set_inner_text("");
             }
         }
+    });*/
+    let callback = Closure::new(move || {
+        console::log_1(&"oninput callback triggered".into());
+        /*let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("mainCanvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap();*/
+
+        //console::log_3(&"canvas width, canvas height: ".into(), &canvas_width.into(), &canvas_height.into());
+
+        let worker_handle = &*worker.borrow();
+        let _ = worker_handle.post_message(&1.into());
+        persistent_callback_handle = get_on_msg_callback();
+
+        // Since the worker returns the message asynchronously, we
+        // attach a callback to be triggered when the worker returns.
+        worker_handle
+            .set_onmessage(Some(persistent_callback_handle.as_ref().unchecked_ref()));
     });
 
     // Attach the closure as `oninput` callback to the input field.
-    document
+    /*document
         .get_element_by_id("inputNumber")
         .expect("#inputNumber should exist")
         .dyn_ref::<HtmlInputElement>()
         .expect("#inputNumber should be a HtmlInputElement")
-        .set_oninput(Some(callback.as_ref().unchecked_ref()));
+        .set_oninput(Some(callback.as_ref().unchecked_ref()));*/
+    //canvas.set_onclick(Some(callback.as_ref().unchecked_ref()));
+    callback.as_ref().unchecked_ref();
+
+
 
     // Leaks memory.
     callback.forget();
@@ -252,23 +293,71 @@ fn setup_input_oninput_callback(worker: Rc<RefCell<web_sys::Worker>>) {
 
 /// Create a closure to act on the message returned by the worker
 fn get_on_msg_callback() -> Closure<dyn FnMut(MessageEvent)> {
-    let callback = Closure::new(move |event: MessageEvent| {
+    /*(let callback = Closure::new(move |event: MessageEvent| {
         console::log_2(&"Received response: ".into(), &event.data().into());
 
-        let result = match event.data().as_bool().unwrap() {
+        /*let result = match event.data().as_bool().unwrap() {
             true => "even",
             false => "odd",
-        };
+        };*/
 
         let document = web_sys::window().unwrap().document().unwrap();
-        document
+        let canvas = document.get_element_by_id("mainCanvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap();
+
+        let context = canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+
+        context.set_fill_style(&"red".into());
+        context.fill_rect(0.0, 0.0, 100.0, 100.0);
+        
+        /*document
             .get_element_by_id("resultField")
             .expect("#resultField should exist")
             .dyn_ref::<HtmlElement>()
             .expect("#resultField should be a HtmlInputElement")
-            .set_inner_text(result);
+            .set_inner_text(result);*/
     });
 
-    callback
+    callback*/
+    Closure::new(move |event: MessageEvent| {
+        console::log_2(&"Received response: ".into(), &event.data().into());
+
+        /*let result = match event.data().as_bool().unwrap() {
+            true => "even",
+            false => "odd",
+        };*/
+
+        let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document.get_element_by_id("mainCanvas").unwrap();
+        let canvas: web_sys::HtmlCanvasElement = canvas
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(|_| ())
+            .unwrap();
+
+        let context = canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+
+        context.set_fill_style(&"rgba(255, 128, 0, 255)".into());
+        context.fill_rect(0.0, 0.0, 100.0, 100.0);
+        
+        /*document
+            .get_element_by_id("resultField")
+            .expect("#resultField should exist")
+            .dyn_ref::<HtmlElement>()
+            .expect("#resultField should be a HtmlInputElement")
+            .set_inner_text(result);*/
+    })
 }
 

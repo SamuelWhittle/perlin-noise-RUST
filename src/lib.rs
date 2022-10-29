@@ -15,6 +15,11 @@ macro_rules! console_log {
 }*/
 
 #[wasm_bindgen]
+pub fn range_map(num: f64, old_min: f64, old_max: f64, new_min: f64, new_max: f64) -> f64 {
+    (num - old_min) / (old_max - old_min) * (new_max - new_min) + new_min
+}
+
+#[wasm_bindgen]
 pub struct PerlinNoise {
     num_octaves: u32,
     octave_scale: f64,
@@ -108,10 +113,6 @@ impl PerlinNoise {
 
             acc + (octave_noise * self.octave_scale.powi(octave as i32) / max_potential_length)
         })
-    }
-
-    pub fn range_map(num: f64, old_min: f64, old_max: f64, new_min: f64, new_max: f64) -> f64 {
-        (num - old_min) / (old_max - old_min) * (new_max - new_min) + new_min
     }
 
     // BASIC GETS

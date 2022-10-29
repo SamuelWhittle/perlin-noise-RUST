@@ -282,10 +282,7 @@ fn setup_input_oninput_callback(worker: Rc<RefCell<web_sys::Worker>>) {
         .dyn_ref::<HtmlInputElement>()
         .expect("#inputNumber should be a HtmlInputElement")
         .set_oninput(Some(callback.as_ref().unchecked_ref()));*/
-    //canvas.set_onclick(Some(callback.as_ref().unchecked_ref()));
-    callback.as_ref().unchecked_ref();
-
-
+    canvas.set_onclick(Some(callback.as_ref().unchecked_ref()));
 
     // Leaks memory.
     callback.forget();
@@ -328,7 +325,7 @@ fn get_on_msg_callback() -> Closure<dyn FnMut(MessageEvent)> {
 
     callback*/
     Closure::new(move |event: MessageEvent| {
-        console::log_2(&"Received response: ".into(), &event.data().into());
+        console::log_2(&"Received response: ".into(), &event.data());
 
         /*let result = match event.data().as_bool().unwrap() {
             true => "even",
